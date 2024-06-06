@@ -1,0 +1,82 @@
+#include <WiFiNINA.h>
+
+// WiFi连接信息
+const char* ssid = "moki"; // WiFi SSID
+const char* password = "jason666"; // WiFi密码
+const char* server = "192.168.0.153"; // 服务器IP地址
+const int port = 8080; // 服务器端口
+
+const int mq7Pin0 = A0; // MQ-7传感器连接到A0引脚
+const int mq7Pin1 = A1; // 连接到A2
+const int mq7Pin2 = A2;
+const int mq7Pin3 = A3; // 连接到A4
+
+const char* room = "room1"; // 房间标识符
+
+const unsigned long sendInterval = 5000; // 每5秒发送一次数据
+unsigned long lastSendTime = 0;
+
+WiFiClient client;
+
+void setup() {
+  Serial.begin(9600);
+
+  // WiFi连接初始化
+  while (WiFi.begin(ssid, password) != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // 设置传感器引脚模式
+  pinMode(mq7Pin0, INPUT);
+  pinMode(mq7Pin1, INPUT);
+  pinMode(mq7Pin2, INPUT);
+  pinMode(mq7Pin3, INPUT);
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+
+  // 每5秒钟发送一次数据
+  if (currentMillis - lastSendTime >= sendInterval) {
+    lastSendTime = currentMillis;
+
+    int mq7Value0 = analogRead(mq7Pin0);
+    int mq7Value1 = analogRead(mq7Pin1);
+    int mq7Value2 = analogRead(mq7Pin2);
+    int mq7Value3 = analogRead(mq7Pin3);
+
+    Serial.print("MQ-7 Sensor Values: ");
+    Serial.println(mq7Value0);
+    Serial.println(mq7Value1);
+    Serial.println(mq7Value2);
+    Serial.println(mq7Value3);
+
+    // 连接到服务器
+    if (client.connect(server, port)) {
+      Serial.println("Connected to server");
+
+      // 准备要发送的数据
+      String data = "GET /update?room=" + String(room) + "&value0=" + String(mq7Value0) + "&value1=" + String(mq7Value1) + "&value2=" + String(mq7Value2) + "&value3=" + String(mq7Value3) + " HTTP/1.1\r\nHost: " + String(server) + "\r\nConnection: close\r\n\r\n";
+
+      // 发送数据
+      client.print(data);
+      Serial.println("Data sent to server");
+
+      // 等待服务器响应并断开连接
+      while (client.connected()) {
+        if (client.available()) {
+          String line = client.readStringUntil('\r');
+          Serial.print(line);
+        }
+      }
+
+      // 断开连接
+      client.stop();
+      Serial.println("Disconnected from server");
+    } else {
+      Serial.println("Failed to connect to server");
+    }
+  }
+}

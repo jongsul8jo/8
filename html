@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .room {
+            width: 45%;
+        }
+    </style>
+    <script>
+        function fetchRoomData(room) {
+            fetch(`/latest?room=${room}`)
+                .then(response => response.json())
+                .then(data => {
+                    let table;
+                    if (room === 'room1') {
+                        table = document.getElementById('room1').getElementsByTagName('tbody')[0];
+                    } else if (room === 'room2') {
+                        table = document.getElementById('room2').getElementsByTagName('tbody')[0];
+                    }
+
+                    // 检查数据是否已经存在
+                    if (table.rows.length > 0 && table.rows[0].cells[0].innerText === data.timestamp) {
+                        return; // 如果数据已经存在，不插入重复数据
+                    }
+
+                    // 插入新数据到表格的最上方
+                    let newRow = table.insertRow(0);
+                    newRow.innerHTML = `<td>${data.timestamp}</td>
+                                        <td>${data.value0}</td>
+                                        <td>${data.value1}</td>
+                                        <td>${data.value2}</td>
+                                        <td>${data.value3}</td>`;
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        function fetchAllData() {
+            fetchRoomData('room1');
+            fetchRoomData('room2');
+        }
+
+        // 每5秒刷新一次数据
+        setInterval(fetchAllData, 5000);
+
+        // 页面加载时立即获取一次数据
+        window.onload = fetchAllData;
+    </script>
+</head>
+<body>
+    <h1>Sensor Data</h1>
+    <div class="container">
+        <div class="room">
+            <h2>Room 1</h2>
+            <h3>Median Values (Last 5 Minutes)</h3>
+            <p>Sensor Value 0: <span id="median_value0_room1">{{ median_values.room1.median_value0 }}</span></p>
+            <p>Sensor Value 1: <span id="median_value1_room1">{{ median_values.room1.median_value1 }}</span></p>
+            <p>Sensor Value 2: <span id="median_value2_room1">{{ median_values.room1.median_value2 }}</span></p>
+            <p>Sensor Value 3: <span id="median_value3_room1">{{ median_values.room1.median_value3 }}</span></p>
+
+            <table id="room1">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Sensor Value 0</th>
+                        <th>Sensor Value 1</th>
+                        <th>Sensor Value 2</th>
+                        <th>Sensor Value 3</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in room1_data %}
+                    <tr>
+                        <td>{{ entry.timestamp }}</td>
+                        <td>{{ entry.value0 }}</td>
+                        <td>{{ entry.value1 }}</td>
+                        <td>{{ entry.value2 }}</td>
+                        <td>{{ entry.value3 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="room">
+            <h2>Room 2</h2>
+            <h3>Median Values (Last 5 Minutes)</h3>
+            <p>Sensor Value 0: <span id="median_value0_room2">{{ median_values.room2.median_value0 }}</span></p>
+            <p>Sensor Value 1: <span id="median_value1_room2">{{ median_values.room2.median_value1 }}</span></p>
+            <p>Sensor Value 2: <span id="median_value2_room2">{{ median_values.room2.median_value2 }}</span></p>
+            <p>Sensor Value 3: <span id="median_value3_room2">{{ median_values.room2.median_value3 }}</span></p>
+
+            <table id="room2">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Sensor Value 0</th>
+                        <th>Sensor Value 1</th>
+                        <th>Sensor Value 2</th>
+                        <th>Sensor Value 3</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in room2_data %}
+                    <tr>
+                        <td>{{ entry.timestamp }}</td>
+                        <td>{{ entry.value0 }}</td>
+                        <td>{{ entry.value1 }}</td>
+                        <td>{{ entry.value2 }}</td>
+                        <td>{{ entry.value3 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

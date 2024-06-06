@@ -36,6 +36,10 @@
                         table = document.getElementById('room2').getElementsByTagName('tbody')[0];
                     }
 
+                    if (data.timestamp === null) {
+                        return;
+                    }
+
                     // 检查数据是否已经存在
                     if (table.rows.length > 0 && table.rows[0].cells[0].innerText === data.timestamp) {
                         return; // 如果数据已经存在，不插入重复数据
@@ -59,6 +63,11 @@
 
         // 每5秒刷新一次数据
         setInterval(fetchAllData, 5000);
+
+        // 每60秒刷新一次网页以更新中位数
+        setInterval(function() {
+            window.location.reload();
+        }, 30000);
 
         // 页面加载时立即获取一次数据
         window.onload = fetchAllData;

@@ -1,0 +1,125 @@
+from flask import Flask, request, jsonify, render_template
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timedelta
+import os
+import numpy as np
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sensor_data.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+class SensorData(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.String(20))
+    room = db.Column(db.String(20))
+    value0 = db.Column(db.Integer)
+    value1 = db.Column(db.Integer)
+    value2 = db.Column(db.Integer)
+    value3 = db.Column(db.Integer)
+
+# 删除旧的数据库文件
+if os.path.exists('sensor_data.db'):
+    os.remove('sensor_data.db')
+
+# 在应用上下文中重新创建数据库表
+with app.app_context():
+    db.create_all()
+
+@app.route('/update', methods=['GET'])
+def update():
+    try:
+        room = request.args.get('room')
+        value0 = request.args.get('value0')
+        value1 = request.args.get('value1')
+        value2 = request.args.get('value2')
+        value3 = request.args.get('value3')
+
+        if room and value0 is not None and value1 is not None and value2 is not None and value3 is not None:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            new_data = SensorData(
+                timestamp=timestamp,
+                room=room,
+                value0=int(value0),
+                value1=int(value1),
+                value2=int(value2),
+                value3=int(value3)
+            )
+            db.session.add(new_data)
+            db.session.commit()
+            return "Sensor data received", 200
+        else:
+            return "Invalid data", 400
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/')
+def index():
+    try:
+        sensor_data = SensorData.query.order_by(SensorData.timestamp.desc()).all()
+
+        # 获取最近5分钟的数据
+        period_duration = 5 * 60
+        now = datetime.now()
+        period_start = now - timedelta(seconds=period_duration)
+
+        recent_data = SensorData.query.filter(SensorData.timestamp >= period_start.strftime('%Y-%m-%d %H:%M:%S')).all()
+
+        # 按房间分组提取数据并计算中位数
+        room_data = {'room1': [], 'room2': []}
+        for data in recent_data:
+            if data.room == 'room1':
+                room_data['room1'].append(data)
+            elif data.room == 'room2':
+                room_data['room2'].append(data)
+
+        median_values = {}
+        for room, values in room_data.items():
+            if values:
+                value0_list = [v.value0 for v in values]
+                value1_list = [v.value1 for v in values]
+                value2_list = [v.value2 for v in values]
+                value3_list = [v.value3 for v in values]
+                median_values[room] = {
+                    'median_value0': np.median(value0_list) if value0_list else None,
+                    'median_value1': np.median(value1_list) if value1_list else None,
+                    'median_value2': np.median(value2_list) if value2_list else None,
+                    'median_value3': np.median(value3_list) if value3_list else None
+                }
+            else:
+                median_values[room] = {
+                    'median_value0': None,
+                    'median_value1': None,
+                    'median_value2': None,
+                    'median_value3': None
+                }
+
+        room1_data = SensorData.query.filter_by(room='room1').order_by(SensorData.timestamp.desc()).all()
+        room2_data = SensorData.query.filter_by(room='room2').order_by(SensorData.timestamp.desc()).all()
+
+        return render_template('index.html', room1_data=room1_data, room2_data=room2_data, median_values=median_values)
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/latest', methods=['GET'])
+def latest():
+    room = request.args.get('room')
+    if not room:
+        return "Room parameter is required", 400
+
+    try:
+        latest_data = SensorData.query.filter_by(room=room).order_by(SensorData.timestamp.desc()).first()
+
+        return jsonify({
+            'timestamp': latest_data.timestamp,
+            'room': latest_data.room,
+            'value0': latest_data.value0,
+            'value1': latest_data.value1,
+            'value2': latest_data.value2,
+            'value3': latest_data.value3
+        })
+    except Exception as e:
+        return str(e), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=True)
